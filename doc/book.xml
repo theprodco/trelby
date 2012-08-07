@@ -260,6 +260,10 @@
 		can also press Del or Backspace to simply delete it. Note that as of
  		now this is not undoable in any way.</para>
 
+		<para>You can convert selected text to uppercase by right-clicking
+		the selection, then choosing the Make uppercase option. This change is
+		currently not undoable.</para>
+
 		<para>You can unselect the selected text by pressing Esc., or simply
  		clicking the mouse on the screen.</para>
 
@@ -500,6 +504,13 @@
 	  <para>There's two variants of the copy command: formatted and
 	  unformatted. Which one you want to use depends on what you're trying
 	  to do. Best to try out both and see which one works better.</para>
+
+	</sect1>
+
+	<sect1>
+	  <title>Edit/Make uppercase</title>
+
+	  <para>Converts all selected text to uppercase.</para>
 
 	</sect1>
 
