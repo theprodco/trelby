@@ -1,20 +1,18 @@
-This file is intented for people wishing to run Trelby using the sources,
-i.e., not using a released package. This means mostly developers who want
-to inspect/modify the code.
+This file is intended for developers wishing to run/inspect/modify Trelby
+using the source code and is not intended for end users using a released package.
 
 1. Requirements
 ===============
 
-You will need Python (2.6 or 2.7) and wxWidgets (2.8) and its Python
-bindings to run Trelby. You also need the lxml Python library
-(http://lxml.de/).
+To build and run Trelby, you will need Python (2.6 or 2.7) and wxWidgets (2.8)
+and its Python bindings. You also need the lxml Python library (http://lxml.de/).
 
-To build the manual, you will also need xsltproc.
+To build the manual, you will also need xsltproc and docbook-xsl.
 
 2. Preparing data files
 =======================
 
-Trelby needs special preparation for 3 of its data files. If you do not do
+Trelby needs special preparation for three of its data files. If you do not do
 this, that aspect of the program will not work.
 
  * Name list
