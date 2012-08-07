@@ -814,6 +814,9 @@ class MyCtrl(wx.Control):
         self.sp.redo()
         self.sp.paginate()
         self.makeLineVisible(self.sp.line)
+
+    def OnUpper(self):
+        self.sp.convertToUpper()
         self.updateScreen()
 
     # returns True if something was deleted
@@ -1199,6 +1202,9 @@ class MyCtrl(wx.Control):
 
     def cmdAbort(self, cs):
         self.sp.abortCmd(cs)
+
+    def cmdChangeToUpper(self, cs):
+        self.sp.convertToUpper()
 
     def cmdChangeToAction(self, cs):
         self.sp.toActionCmd(cs)
@@ -1743,6 +1749,8 @@ class MyFrame(wx.Frame):
         editMenu.Append(ID_EDIT_COPY, "&Copy\tCTRL-C")
         editMenu.Append(ID_EDIT_PASTE, "&Paste\tCTRL-V")
         editMenu.AppendSeparator()
+        editMenu.Append(ID_EDIT_UPPER, "Make uppercase\tCTRL-K")
+        editMenu.AppendSeparator()
 
         tmp = wx.Menu()
         tmp.Append(ID_EDIT_COPY_TO_CB, "&Unformatted")
@@ -1932,6 +1940,10 @@ class MyFrame(wx.Frame):
                 m.Append(ID_EDIT_COPY, "Copy")
 
             m.Append(ID_EDIT_PASTE, "Paste")
+            m.AppendSeparator()
+
+            if m is self.rightClickMenuWithCut:
+                m.Append(ID_EDIT_UPPER, "Make uppercase")
 
         wx.EVT_MENU(self, ID_FILE_NEW, self.OnNewScript)
         wx.EVT_MENU(self, ID_FILE_OPEN, self.OnOpen)
@@ -1956,6 +1968,7 @@ class MyFrame(wx.Frame):
         wx.EVT_MENU(self, ID_EDIT_COPY_TO_CB_FMT, self.OnCopySystemCbFormatted)
         wx.EVT_MENU(self, ID_EDIT_PASTE_FROM_CB, self.OnPasteSystemCb)
         wx.EVT_MENU(self, ID_EDIT_SELECT_SCENE, self.OnSelectScene)
+        wx.EVT_MENU(self, ID_EDIT_UPPER, self.OnUpper)
         wx.EVT_MENU(self, ID_EDIT_SELECT_ALL, self.OnSelectAll)
         wx.EVT_MENU(self, ID_EDIT_GOTO_PAGE, self.OnGotoPage)
         wx.EVT_MENU(self, ID_EDIT_GOTO_SCENE, self.OnGotoScene)
@@ -2046,6 +2059,7 @@ class MyFrame(wx.Frame):
             "ID_EDIT_PASTE_FROM_CB",
             "ID_EDIT_SELECT_ALL",
             "ID_EDIT_SELECT_SCENE",
+            "ID_EDIT_UPPER",
             "ID_FILE_CLOSE",
             "ID_FILE_EXIT",
             "ID_FILE_EXPORT",
@@ -2370,6 +2384,9 @@ class MyFrame(wx.Frame):
 
     def OnRedo(self, event = None):
         self.panel.ctrl.OnRedo()
+
+    def OnUpper(self, event = None):
+        self.panel.ctrl.OnUpper()
 
     def OnCut(self, event = None):
         self.panel.ctrl.OnCut()
