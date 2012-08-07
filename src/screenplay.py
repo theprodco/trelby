@@ -2727,6 +2727,35 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         self.line = l2
         self.column = len(self.lines[l2].text)
 
+   # select text in the current element, putting cursor at end
+    def selectElementCmd(self, cs):
+       top, bottom = self.getElemIndexesFromLine(self.line)
+
+       self.mark = Mark(top, 0)
+       self.line = bottom
+       self.column = len(self.lines[bottom].text)
+
+   # select text in the current line, putting cursor at end
+    def selectLineCmd(self, cs):
+       self.column = len(self.lines[self.line].text)
+       self.mark = Mark(self.line, 0) 
+
+   # select text in the current word putting cursor on last character
+    def selectWordCmd(self, cs):
+       wstart = self.column
+       wend = self.column
+       if (wend < len(self.lines[self.line].text)) and \
+       (not util.isWordBoundary(self.lines[self.line].text[wend])):
+           while ((wend < len(self.lines[self.line].text)) \
+           and (not util.isWordBoundary(self.lines[self.line].text[wend]))):
+               wend += 1
+           if (wend == len(self.lines[self.line].text)):
+               wend +=1
+           self.column = wend-1
+           while ((not util.isWordBoundary(self.lines[self.line].text[wstart])) and (wstart >= 0)):
+               wstart -= 1
+           self.mark = Mark(self.line, wstart+1)
+
     # select all text of the screenplay. sets mark at beginning and moves
     # cursor to the end.
     def selectAllCmd(self, cs):
