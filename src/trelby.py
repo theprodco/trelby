@@ -1019,6 +1019,9 @@ class MyCtrl(wx.Control):
     def OnSpellCheckerDlg(self):
         self.sp.clearMark()
         self.clearAutoComp()
+        self.sp.clearMark()
+        self.mouseSelectActive = False
+	self.updateScreen()
 
         wasAtStart = self.sp.line == 0
 
