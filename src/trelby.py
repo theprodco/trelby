@@ -60,6 +60,10 @@ VIEWMODE_OVERVIEW_SMALL,\
 VIEWMODE_OVERVIEW_LARGE,\
 = range(5)
 
+# double-click codes
+WORD_NOT_SELECTED = 0
+WORD_SELECTED = 1
+
 def refreshGuiConfig():
     global cfgGui
 
@@ -207,7 +211,7 @@ class MyCtrl(wx.Control):
         wx.EVT_ERASE_BACKGROUND(self, self.OnEraseBackground)
         wx.EVT_LEFT_DOWN(self, self.OnLeftDown)
         wx.EVT_LEFT_UP(self, self.OnLeftUp)
-        wx.EVT_LEFT_DCLICK(self, self.OnLeftDown)
+        wx.EVT_LEFT_DCLICK(self, self.OnLeftDClick)
         wx.EVT_RIGHT_DOWN(self, self.OnRightDown)
         wx.EVT_MOTION(self, self.OnMotion)
         wx.EVT_MOUSEWHEEL(self, self.OnMouseWheel)
@@ -215,6 +219,8 @@ class MyCtrl(wx.Control):
 
         self.createEmptySp()
         self.updateScreen(redraw = False)
+        self.dclick = 0
+        self.pos = 0
 
     def OnChangeType(self, event):
         cs = screenplay.CommandState()
@@ -568,6 +574,24 @@ class MyCtrl(wx.Control):
                 self.__class__.screenBuf = sb
 
         self.makeLineVisible(self.sp.line)
+
+ # a double-click highlights the current word.
+ # a second double-click without moving the mouse highlights the whole line
+ # a third double-click without moving the mouse highlights the whole element
+
+    def OnLeftDClick(self, event, mark = False):
+        pos = event.GetPosition()
+        line, col = gd.vm.pos2linecol(self, 0, pos.y)
+        if self.dclick == WORD_NOT_SELECTED or self.pos != pos:
+            self.sp.selectWordCmd(line)
+            self.dclick = WORD_SELECTED
+        elif self.dclick == WORD_SELECTED:
+            self.sp.selectElementCmd(line)
+            self.dclick = WORD_NOT_SELECTED
+        else:
+             self.dclick = WORD_NOT_SELECTED
+        self.pos = pos
+        self.updateScreen()
 
     def OnLeftDown(self, event, mark = False):
         if not self.mouseSelectActive:
@@ -929,6 +953,21 @@ class MyCtrl(wx.Control):
         self.sp.cmd("selectScene")
 
         self.makeLineVisible(self.sp.line)
+        self.updateScreen()
+
+    def OnSelectElement(self):
+        self.sp.cmd("SelectElement")
+        self.makelineVisible(self.sp.line)
+        self.updateScreen()
+
+    def OnSelectLine(self):
+        self.sp.cmd("SelectLine")
+        self.makelineVisible(self.sp.line)
+        self.updateScreen()
+
+    def OnSelectWord(self):
+        self.sp.cmd("SelectWord")
+        self.makelineVisible(self.sp.line)
         self.updateScreen()
 
     def OnSelectAll(self):
@@ -2411,6 +2450,15 @@ class MyFrame(wx.Frame):
 
     def OnSelectScene(self, event = None):
         self.panel.ctrl.OnSelectScene()
+
+    def OnSelectElement(self, event=None):
+        self.panel.ctrl.OnSelectElement()
+
+    def OnSelectLine(self, event=None):
+        self.panel.ctrl.OnSelectLine()
+
+    def OnSelectWord(self, event=None):
+        self.panel.ctrl.OnSelectWord()
 
     def OnSelectAll(self, event = None):
         self.panel.ctrl.OnSelectAll()

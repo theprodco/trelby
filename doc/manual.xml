@@ -260,6 +260,9 @@
 		can also press Del or Backspace to simply delete it. Note that as of
  		now this is not undoable in any way.</para>
 
+		<para>Double-clicking on a word once will select the word.  Double-clicking
+		a second time will select the entire current element.</para>
+
 		<para>You can convert selected text to uppercase by right-clicking
 		the selection, then choosing the Make uppercase option. This change is
 		currently not undoable.</para>
