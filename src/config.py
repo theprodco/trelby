@@ -702,6 +702,9 @@ class ConfigGlobal:
                     " transition.",
                     [util.Key(ord("T"), alt = True).toInt()]),
 
+            Command("ChangeToUpper", "Change selected text to uppercase.",
+                    [util.Key(ord("K"), alt = True).toInt()]),
+
             Command("CharacterMap", "Open the character map.",
                     isMenu = True),
 

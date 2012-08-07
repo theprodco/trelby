@@ -1652,6 +1652,19 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
         return line
 
+    # set selection to uppercase.
+    def convertToUpper(self):
+        selection = self.getMarkedLines()
+        if selection:
+            startSection, endSection = selection
+            for i in xrange(startSection, endSection + 1):
+                c1, c2 = self.getMarkedColumns(i, selection)
+                self.lines[i].text = self.lines[i].text[:c1] + util.upper(self.lines[i].text[c1:c2+1]) + \
+                self.lines[i].text[c2+1:]
+            self.clearMark()
+            self.reformatAll()
+            self.markChanged()
+
     # convert element(s) to given type
     #  - if multiple elements are selected, all are changed
     #  - if not, the change is applied to element under cursor.
@@ -3052,6 +3065,9 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
     def toSceneCmd(self, cs):
         self.convertTypeTo(SCENE, True)
+
+    def toUpperCmd(self, cs):
+        self.convertToUpper()
 
     def toActionCmd(self, cs):
         self.convertTypeTo(ACTION, True)
