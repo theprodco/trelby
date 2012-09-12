@@ -816,7 +816,7 @@ class MyCtrl(wx.Control):
         self.makeLineVisible(self.sp.line)
 
     def OnUpper(self):
-        self.sp.convertToUpper()
+        self.sp.convertToUpper(True)
         self.updateScreen()
 
     # returns True if something was deleted
@@ -1203,7 +1203,7 @@ class MyCtrl(wx.Control):
         self.sp.abortCmd(cs)
 
     def cmdChangeToUpper(self, cs):
-        self.sp.convertToUpper()
+        self.sp.convertToUpper(True)
 
     def cmdChangeToAction(self, cs):
         self.sp.toActionCmd(cs)
