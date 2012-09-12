@@ -3103,6 +3103,9 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         u.undo(self)
         self.currentUndo = u
 
+        self.clearMark()
+        self.clearAutoComp()
+        self.markChanged()
 
     def redo(self):
         if not self.canRedo():
@@ -3111,6 +3114,9 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         self.currentUndo.redo(self)
         self.currentUndo = self.currentUndo.next
 
+        self.clearMark()
+        self.clearAutoComp()
+        self.markChanged()
 
     # check script for internal consistency. raises an AssertionError on
     # errors. ONLY MEANT TO BE USED IN TEST CODE.
