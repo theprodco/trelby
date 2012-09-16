@@ -1,6 +1,7 @@
 import config
 import gutil
 import misc
+import undo
 import util
 
 import wx
@@ -11,7 +12,10 @@ class FindDlg(wx.Dialog):
                            style = wx.DEFAULT_DIALOG_STYLE | wx.WANTS_CHARS)
 
         self.ctrl = ctrl
-        self.didReplaces = False
+
+        self.searchLine = -1
+        self.searchColumn = -1
+        self.searchWidth = -1
 
         hsizer = wx.BoxSizer(wx.HORIZONTAL)
 
@@ -165,8 +169,8 @@ class FindDlg(wx.Dialog):
         self.showExtra(not self.useExtra)
 
     def OnText(self, event):
-        if self.ctrl.searchLine != -1:
-            self.ctrl.searchLine = -1
+        if self.ctrl.sp.mark:
+            self.ctrl.sp.clearMark()
             self.ctrl.updateScreen()
 
     def OnCharEntry(self, event):
@@ -258,7 +262,7 @@ class FindDlg(wx.Dialog):
         if value == "":
             return
 
-        self.ctrl.searchWidth = len(value)
+        self.searchWidth = len(value)
 
         if self.dirUp:
             inc = -1
@@ -269,7 +273,7 @@ class FindDlg(wx.Dialog):
         col = self.ctrl.sp.column
         ls = self.ctrl.sp.lines
 
-        if (line == self.ctrl.searchLine) and (col == self.ctrl.searchColumn):
+        if (line == self.searchLine) and (col == self.searchColumn):
             text = ls[line].text
 
             col += inc
@@ -289,7 +293,7 @@ class FindDlg(wx.Dialog):
             if (line == (len(ls) - 1)) and (col == (len(ls[line].text))):
                 fullSearch = True
 
-        self.ctrl.searchLine = -1
+        self.searchLine = -1
 
         while True:
             found = False
@@ -326,10 +330,10 @@ class FindDlg(wx.Dialog):
                         col = max(len(ls[line].text) - 1, 0)
 
             if found:
-                self.ctrl.sp.line = line
-                self.ctrl.sp.column = res
-                self.ctrl.searchLine = line
-                self.ctrl.searchColumn = res
+                self.searchLine = line
+                self.searchColumn = res
+                self.ctrl.sp.gotoPos(line, res)
+                self.ctrl.sp.setMark(line, res + self.searchWidth - 1)
 
                 if not autoFind:
                     self.ctrl.makeLineVisible(line)
@@ -368,50 +372,57 @@ class FindDlg(wx.Dialog):
             self.ctrl.updateScreen()
 
     def OnReplace(self, event = None, autoFind = False):
-        if self.ctrl.searchLine != -1:
-            value = util.toInputStr(misc.fromGUI(self.replaceEntry.GetValue()))
-            ls = self.ctrl.sp.lines
-
-            ls[self.ctrl.searchLine].text = util.replace(
-                ls[self.ctrl.searchLine].text, value,
-                self.ctrl.searchColumn, self.ctrl.searchWidth)
-
-            self.ctrl.searchLine = -1
-
-            diff = len(value) - self.ctrl.searchWidth
-
-            if not self.dirUp:
-                self.ctrl.sp.column += self.ctrl.searchWidth + diff
-            else:
-                self.ctrl.sp.column -= 1
-
-                if self.ctrl.sp.column < 0:
-                    self.ctrl.sp.line -= 1
-
-                    if self.ctrl.sp.line < 0:
-                        self.ctrl.sp.line = 0
-                        self.ctrl.sp.column = 0
-
-                        self.ctrl.searchLine = 0
-                        self.ctrl.searchColumn = 0
-                        self.ctrl.searchWidth = 0
-                    else:
-                        self.ctrl.sp.column = len(ls[self.ctrl.sp.line].text)
-
-            if diff != 0:
-                self.didReplaces = True
-
-            self.ctrl.sp.markChanged()
-            self.OnFind(autoFind = autoFind)
-
-            return True
-        else:
+        if self.searchLine == -1:
             return False
+
+        value = util.toInputStr(misc.fromGUI(self.replaceEntry.GetValue()))
+        ls = self.ctrl.sp.lines
+
+        sp = self.ctrl.sp
+        u = undo.SinglePara(sp, undo.CMD_MISC, self.searchLine)
+
+        ls[self.searchLine].text = util.replace(
+            ls[self.searchLine].text, value,
+            self.searchColumn, self.searchWidth)
+
+        sp.rewrapPara(sp.getParaFirstIndexFromLine(self.searchLine))
+
+        self.searchLine = -1
+
+        diff = len(value) - self.searchWidth
+
+        if not self.dirUp:
+            sp.column += self.searchWidth + diff
+        else:
+            sp.column -= 1
+
+            if sp.column < 0:
+                sp.line -= 1
+
+                if sp.line < 0:
+                    sp.line = 0
+                    sp.column = 0
+
+                    self.searchLine = 0
+                    self.searchColumn = 0
+                    self.searchWidth = 0
+                else:
+                    sp.column = len(ls[sp.line].text)
+
+        sp.clearMark()
+        sp.markChanged()
+
+        u.setAfter(sp)
+        sp.addUndo(u)
+
+        self.OnFind(autoFind = autoFind)
+
+        return True
 
     def OnReplaceAll(self, event = None):
         self.getParams()
 
-        if self.ctrl.searchLine == -1:
+        if self.searchLine == -1:
             self.OnFind(autoFind = True)
 
         count = 0

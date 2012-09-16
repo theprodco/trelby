@@ -8,9 +8,58 @@
 
   -misc.py
   -install.nsi
-  -trelby.desktop
   -debian/changelog
   -doc/version.xml
 
 -try using graphics contexts for tab ctrl drawing to get anti-aliased
  lines (http://docs.wxwidgets.org/trunk/classwx_graphics_context.html)
+
+
+UNDO/REDO
+=========
+
+action                type
+------                ------
+
+done:
+
+delete-elem-types      FullCopy
+addChar                SinglePara (possibly merged)
+  charmap
+  namesdlg
+spellcheckerdlg        SinglePara
+find-and-replace       SinglePara
+NewElement             ManyElems(1, 2)
+Tab:
+  (end of elem)        ManyElems(1, 2)
+  (middle of elem)     ManyElems(1, 1)
+TabPrev                ManyElems(1, 1)
+insertForcedLineBreak  ManyElems(1, 1)
+deleteForward:
+  (not end of elem)    ManyElems(1, 1) (possibly merged)
+  (end of elem)        ManyElems(2, 1)
+deleteBackward:
+  (not start of elem)  ManyElems(1, 1) (possibly merged)
+  (start of elem)      ManyElems(2, 1)
+convertTypeTo          ManyElems(N, N)
+cut                    AnyDifference
+paste                  AnyDifference
+
+remaining:
+
+none?
+
+
+other:
+
+  -update manual (document undo, ...)
+
+  -implement undo history trimming (estimate memory usage of each item,
+   and cap used memory at X)
+
+  -write unit tests
+
+    -modify t_random.py to test that each operation can be undone/redone
+     and script contents are exactly the same
+
+    -randomly do undo/redo

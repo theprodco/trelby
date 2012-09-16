@@ -857,6 +857,10 @@ class ConfigGlobal:
                     [util.Key(17, ctrl = True).toInt()],
                     isFixed = True, isMenu = True),
 
+            Command("Redo", "Redo a change that was reverted through undo.",
+                    [util.Key(25, ctrl = True).toInt()],
+                    isFixed = True, isMenu = True),
+
             Command("ReportCharacter", "Generate character report.",
                     isMenu = True),
 
@@ -936,6 +940,10 @@ class ConfigGlobal:
             Command("ToggleShowFormatting", "Toggle 'Show formatting'"
                     " display.", isMenu = True),
 
+            Command("Undo", "Undo the last change.",
+                    [util.Key(26, ctrl = True).toInt()],
+                    isFixed = True, isMenu = True),
+
             Command("ViewModeDraft", "Change view mode to draft.",
                     isMenu = True),
 
@@ -962,10 +970,6 @@ class ConfigGlobal:
 
         # how many seconds to show splash screen for on startup (0 = disabled)
         v.addInt("splashTime", 2, "SplashTime", 0, 10)
-
-        # confirm non-undoable delete operations that would delete at
-        # least this many lines. (0 = disabled)
-        v.addInt("confirmDeletes", 2, "ConfirmDeletes", 0, 500)
 
         # vertical distance between rows, in pixels
         v.addInt("fontYdelta", 18, "FontYDelta", 4, 125)
@@ -1025,7 +1029,6 @@ class ConfigGlobal:
         v.addColor("pageBorder", 202, 202, 202, "PageBorder", "Page border")
         v.addColor("pageShadow", 153, 153, 153, "PageShadow", "Page shadow")
         v.addColor("selected", 200, 200, 200, "Selected", "Selection")
-        v.addColor("search", 255, 127, 0, "SearchResult", "Search result")
         v.addColor("cursor", 135, 135, 253, "Cursor", "Cursor")
         v.addColor("autoCompFg", 0, 0, 0, "AutoCompletionFG",
                    "Auto-completion foreground")
@@ -1301,9 +1304,6 @@ class ConfigGui:
 
         self.selectedBrush = wx.Brush(self.selectedColor)
         self.selectedPen = wx.Pen(self.selectedColor)
-
-        self.searchBrush = wx.Brush(self.searchColor)
-        self.searchPen = wx.Pen(self.searchColor)
 
         self.cursorBrush = wx.Brush(self.cursorColor)
         self.cursorPen = wx.Pen(self.cursorColor)

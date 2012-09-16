@@ -221,7 +221,7 @@ class MyCtrl(wx.Control):
 
         lt = idToLTMap[event.GetId()]
 
-        self.sp.convertTypeTo(lt)
+        self.sp.convertTypeTo(lt, True)
         self.sp.cmdPost(cs)
 
         if cs.needsVisifying:
@@ -231,10 +231,6 @@ class MyCtrl(wx.Control):
 
     def clearVars(self):
         self.mouseSelectActive = False
-
-        self.searchLine = -1
-        self.searchColumn = -1
-        self.searchWidth = -1
 
         # find dialog stored settings
         self.findDlgFindText = ""
@@ -469,6 +465,15 @@ class MyCtrl(wx.Control):
 
         mainFrame.statusCtrl.SetValues(page, pageCnt, cur.ti.name, tabNext, enterNext)
 
+        canUndo = self.sp.canUndo()
+        canRedo = self.sp.canRedo()
+
+        mainFrame.menuBar.Enable(ID_EDIT_UNDO, canUndo)
+        mainFrame.menuBar.Enable(ID_EDIT_REDO, canRedo)
+
+        mainFrame.toolBar.EnableTool(ID_EDIT_UNDO, canUndo)
+        mainFrame.toolBar.EnableTool(ID_EDIT_REDO, canRedo)
+
     # apply per-script config
     def applyCfg(self, newCfg):
         self.sp.applyCfg(newCfg)
@@ -537,7 +542,7 @@ class MyCtrl(wx.Control):
         sp = self.sp
         if sp.cfg.pdfRemoveNotes:
             sp = copy.deepcopy(self.sp)
-            sp.removeElementTypes({screenplay.NOTE : None})
+            sp.removeElementTypes({screenplay.NOTE : None}, False)
 
         sp.paginate()
 
@@ -795,19 +800,24 @@ class MyCtrl(wx.Control):
             self.loadFile(self.fileName)
             self.updateScreen()
 
+    def OnUndo(self):
+        self.sp.undo()
+        self.sp.paginate()
+        self.makeLineVisible(self.sp.line)
+        self.updateScreen()
+
+    def OnRedo(self):
+        self.sp.redo()
+        self.sp.paginate()
+        self.makeLineVisible(self.sp.line)
+        self.updateScreen()
+
     # returns True if something was deleted
     def OnCut(self, doUpdate = True, doDelete = True, copyToClip = True):
         marked = self.sp.getMarkedLines()
 
         if not marked:
             return False
-
-        if not copyToClip and cfgGl.confirmDeletes and (
-            (marked[1] - marked[0] + 1) >= cfgGl.confirmDeletes):
-            if wx.MessageBox("Are you sure you want to delete\n"
-                             "the selected text?", "Confirm",
-                             wx.YES_NO | wx.NO_DEFAULT, self) == wx.NO:
-                return False
 
         cd = self.sp.getSelectedAsCD(doDelete)
 
@@ -994,25 +1004,21 @@ class MyCtrl(wx.Control):
         wx.MessageBox(msg, "Results", wx.OK, mainFrame)
 
     def OnFind(self):
+        self.sp.clearMark()
         self.clearAutoComp()
+        self.updateScreen()
 
         dlg = finddlg.FindDlg(mainFrame, self)
         dlg.ShowModal()
         dlg.saveState()
-
-        if dlg.didReplaces:
-            self.sp.reformatAll()
-            self.makeLineVisible(self.sp.line)
-
         dlg.Destroy()
 
-        self.searchLine = -1
-        self.searchColumn = -1
-        self.searchWidth = -1
-
+        self.sp.clearMark()
+        self.makeLineVisible(self.sp.line)
         self.updateScreen()
 
     def OnSpellCheckerDlg(self):
+        self.sp.clearMark()
         self.clearAutoComp()
 
         wasAtStart = self.sp.line == 0
@@ -1043,19 +1049,13 @@ class MyCtrl(wx.Control):
         dlg = spellcheckdlg.SpellCheckDlg(mainFrame, self, sc, gd.scDict)
         dlg.ShowModal()
 
-        if dlg.didReplaces:
-            self.sp.reformatAll()
-            self.makeLineVisible(self.sp.line)
-
         if dlg.changedGlobalDict:
             gd.saveScDict()
 
         dlg.Destroy()
 
-        self.searchLine = -1
-        self.searchColumn = -1
-        self.searchWidth = -1
-
+        self.sp.clearMark()
+        self.makeLineVisible(self.sp.line)
         self.updateScreen()
 
     def OnDeleteElements(self):
@@ -1082,12 +1082,7 @@ class MyCtrl(wx.Control):
         if not ok or (len(tdict) == 0):
             return
 
-        if wx.MessageBox("Are you sure you want to delete\n"
-                         "the selected elements?", "Confirm",
-                         wx.YES_NO | wx.NO_DEFAULT, self) == wx.NO:
-            return
-
-        self.sp.removeElementTypes(tdict)
+        self.sp.removeElementTypes(tdict, True)
         self.sp.paginate()
         self.makeLineVisible(self.sp.line)
         self.updateScreen()
@@ -1281,6 +1276,14 @@ class MyCtrl(wx.Control):
         self.sp.toPrevTypeTabCmd(cs)
 
     def cmdSpeedTest(self, cs):
+        import undo
+        self.speedTestUndo = []
+
+        def testUndoFullCopy():
+            u = undo.FullCopy(self.sp)
+            u.setAfter(self.sp)
+            self.speedTestUndo.append(u)
+
         def testReformatAll():
             self.sp.reformatAll()
 
@@ -1536,12 +1539,6 @@ class MyCtrl(wx.Control):
                     dc.SetBrush(cfgGui.cursorBrush)
                     dc.DrawRectangle(t.x + self.sp.column * fx, y, fx, fi.fy)
 
-                if i == self.searchLine:
-                    dc.SetPen(cfgGui.searchPen)
-                    dc.SetBrush(cfgGui.searchBrush)
-                    dc.DrawRectangle(t.x + self.searchColumn * fx, y,
-                                     self.searchWidth * fx, fi.fy)
-
             if len(t.text) != 0:
                 tl = texts.get(fi.font)
                 if tl == None:
@@ -1718,6 +1715,9 @@ class MyFrame(wx.Frame):
         fileMenu.Append(ID_FILE_EXIT, "E&xit\tCTRL-Q")
 
         editMenu = wx.Menu()
+        editMenu.Append(ID_EDIT_UNDO, "&Undo\tCTRL-Z")
+        editMenu.Append(ID_EDIT_REDO, "&Redo\tCTRL-Y")
+        editMenu.AppendSeparator()
         editMenu.Append(ID_EDIT_CUT, "Cu&t\tCTRL-X")
         editMenu.Append(ID_EDIT_COPY, "&Copy\tCTRL-C")
         editMenu.Append(ID_EDIT_PASTE, "&Paste\tCTRL-V")
@@ -1837,6 +1837,11 @@ class MyFrame(wx.Frame):
 
         self.toolBar.AddSeparator()
 
+        addTB(ID_EDIT_UNDO, "undo.png", "Undo")
+        addTB(ID_EDIT_REDO, "redo.png", "Redo")
+
+        self.toolBar.AddSeparator()
+
         addTB(ID_EDIT_FIND, "find.png", "Find / Replace")
         addTB(ID_TOOLBAR_VIEWS, "layout.png", "View mode")
         addTB(ID_TOOLBAR_REPORTS, "report.png", "Script reports")
@@ -1921,6 +1926,8 @@ class MyFrame(wx.Frame):
         wx.EVT_MENU(self, ID_SETTINGS_SAVE_AS, self.OnSaveSettingsAs)
         wx.EVT_MENU(self, ID_SETTINGS_SC_DICT, self.OnSpellCheckerDictionaryDlg)
         wx.EVT_MENU(self, ID_FILE_EXIT, self.OnExit)
+        wx.EVT_MENU(self, ID_EDIT_UNDO, self.OnUndo)
+        wx.EVT_MENU(self, ID_EDIT_REDO, self.OnRedo)
         wx.EVT_MENU(self, ID_EDIT_CUT, self.OnCut)
         wx.EVT_MENU(self, ID_EDIT_COPY, self.OnCopy)
         wx.EVT_MENU(self, ID_EDIT_PASTE, self.OnPaste)
@@ -2002,6 +2009,8 @@ class MyFrame(wx.Frame):
 
     def allocIds(self):
         names = [
+            "ID_EDIT_UNDO",
+            "ID_EDIT_REDO",
             "ID_EDIT_COPY",
             "ID_EDIT_COPY_SYSTEM",
             "ID_EDIT_COPY_TO_CB",
@@ -2334,6 +2343,12 @@ class MyFrame(wx.Frame):
                 gd.confFilename = dlg.GetPath()
 
         dlg.Destroy()
+
+    def OnUndo(self, event = None):
+        self.panel.ctrl.OnUndo()
+
+    def OnRedo(self, event = None):
+        self.panel.ctrl.OnRedo()
 
     def OnCut(self, event = None):
         self.panel.ctrl.OnCut()

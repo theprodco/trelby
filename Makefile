@@ -1,10 +1,12 @@
-.PHONY = dist
-
 BINDIR = $(DESTDIR)/opt/trelby
 DESKTOPDIR = $(DESTDIR)/usr/share/applications
 
+.PHONY : clean dist deb
+
 dist: names.txt.gz dict_en.dat.gz manual.html
 	./gen_linux_dist.sh
+
+deb: dist
 	debuild -us -uc -b
 
 names.txt.gz: names.txt
@@ -14,7 +16,7 @@ dict_en.dat.gz: dict_en.dat
 	gzip -c dict_en.dat > dict_en.dat.gz
 
 manual.html: doc/*
-	make -C doc && mv doc/book.html manual.html
+	make -C doc && mv doc/manual.html .
 
 clean:
 	rm -f src/*.pyc tests/*.pyc names.txt.gz dict_en.dat.gz manual.html
@@ -28,3 +30,4 @@ install:
 
 uninstall:
 	rm -f $(BINDIR)
+	rm -f $(DESKTOPDIR)/trelby.desktop

@@ -33,6 +33,7 @@ import pdf
 import pml
 import spellcheck
 import titles
+import undo
 import util
 
 import codecs
@@ -90,6 +91,16 @@ class Screenplay:
         # load/save/creation.
         self.hasChanged = False
 
+        # first/last undo objects (undo.Base)
+        self.firstUndo = None
+        self.lastUndo = None
+
+        # value of this, depending on the user's last action:
+        #  undo: the undo object that was used
+        #  redo: the next undo object from the one that was used
+        #  anything else: None
+        self.currentUndo = None
+
     def isModified(self):
         if not self.hasChanged:
             return False
@@ -102,6 +113,9 @@ class Screenplay:
 
     def markChanged(self, state = True):
         self.hasChanged = state
+
+    def cursorAsMark(self):
+        return Mark(self.line, self.column)
 
     # return True if the line is a parenthetical and not the first line of
     # that element (such lines need an extra space of indenting).
@@ -405,10 +419,15 @@ class Screenplay:
 
     # apply new config.
     def applyCfg(self, cfg):
+        self.firstUndo = None
+        self.lastUndo = None
+        self.currentUndo = None
+
         self.cfg = copy.deepcopy(cfg)
         self.cfg.recalc()
         self.reformatAll()
         self.paginate()
+
         self.markChanged()
 
     # return script config as a string.
@@ -1043,6 +1062,10 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         self._topLine = util.clamp(line, 0, len(self.lines) - 1)
 
     def reformatAll(self):
+        # doing a reformatAll while we have undo history will completely
+        # break undo, so that can't be allowed.
+        assert not self.firstUndo
+
         #sfdlksjf = util.TimerDev("reformatAll")
 
         line = 0
@@ -1387,6 +1410,25 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
         return scene
 
+    # return how many elements one must advance to get from element
+    # containing line1 to element containing line2. line1 must be <=
+    # line2, and either line can be anywhere in their respective elements.
+    # returns 0 if they're in the same element, 1 if they're in
+    # consecutive elements, etc.
+    def elemsDistance(self, line1, line2):
+        ls = self.lines
+
+        count = 0
+        line = line1
+
+        while line < line2:
+            if ls[line].lb == LB_LAST:
+                count += 1
+
+            line += 1
+
+        return count
+
     # returns true if 'line', which must be the last line on a page, needs
     # (MORE) after it and the next page needs a "SOMEBODY (cont'd)".
     def needsMore(self, line):
@@ -1609,16 +1651,22 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
     # convert element(s) to given type
     #  - if multiple elements are selected, all are changed
     #  - if not, the change is applied to element under cursor.
-    def convertTypeTo(self, lt):
+    def convertTypeTo(self, lt, saveUndo):
         ls = self.lines
         selection = self.getMarkedLines()
 
         if selection:
             startSection, endSection = selection
+            selectedElems = self.elemsDistance(startSection, endSection) + 1
         else:
             startSection, endSection = self.getElemIndexes()
+            selectedElems = 1
 
         currentLine = startSection
+
+        if saveUndo:
+            u = undo.ManyElems(
+                self, undo.CMD_MISC, currentLine, selectedElems, selectedElems)
 
         while currentLine <= endSection:
             first, last = self.getElemIndexesFromLine(currentLine)
@@ -1646,11 +1694,18 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
         if selection:
             self.clearMark()
+
+            # FIXME: can't do reformatAll with undo history, must use
+            # reformatRange here
             self.reformatAll()
         else:
             self.rewrapElem(first)
 
         self.markChanged()
+
+        if saveUndo:
+            u.setAfter(self)
+            self.addUndo(u)
 
     # join lines 'line' and 'line + 1' and position cursor at the join
     # position.
@@ -1694,6 +1749,8 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
             return
 
+        u = undo.ManyElems(self, undo.CMD_MISC, self.line, 1, 2)
+
         if not self.acItems:
             if self.isAtEndOfParen():
                 self.column += 1
@@ -1704,11 +1761,14 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         self.splitLine()
         ls[self.line - 1].lb = LB_LAST
 
-        self.convertTypeTo(newType)
+        self.convertTypeTo(newType, False)
 
         self.rewrapPara()
         self.rewrapPrevPara()
         self.markChanged()
+
+        u.setAfter(self)
+        self.addUndo(u)
 
     # delete character at given position and optionally position
     # cursor there.
@@ -2050,88 +2110,95 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
         cd.lines[-1].lb = LB_LAST
 
-        if doDelete:
-            # range of lines, inclusive, that we need to totally delete
-            del1 = sys.maxint
-            del2 = -1
+        if not doDelete:
+            return cd
 
-            # delete selected text from the lines
-            for i in xrange(marked[0], marked[1] + 1):
-                c1, c2 = self.getMarkedColumns(i, marked)
+        u = undo.AnyDifference(self)
 
-                ln = ls[i]
-                ln.text = ln.text[0:c1] + ln.text[c2 + 1:]
+        # range of lines, inclusive, that we need to totally delete
+        del1 = sys.maxint
+        del2 = -1
 
-                if i == marked[0]:
-                    endCol = c1
+        # delete selected text from the lines
+        for i in xrange(marked[0], marked[1] + 1):
+            c1, c2 = self.getMarkedColumns(i, marked)
 
-                # if we removed all text, mark this line to be deleted
-                if len(ln.text) == 0:
-                    del1 = min(del1, i)
-                    del2 = max(del2, i)
+            ln = ls[i]
+            ln.text = ln.text[0:c1] + ln.text[c2 + 1:]
 
-            # adjust linebreaks
-            if marked[0] == marked[1]:
+            if i == marked[0]:
+                endCol = c1
 
-                # user has selected text from a single line only
+            # if we removed all text, mark this line to be deleted
+            if len(ln.text) == 0:
+                del1 = min(del1, i)
+                del2 = max(del2, i)
 
+        # adjust linebreaks
+        if marked[0] == marked[1]:
+
+            # user has selected text from a single line only
+
+            ln = ls[marked[0]]
+
+            # if it is a single-line element, we never need to modify
+            # its linebreak
+            if not self.isOnlyLineOfElem(marked[0]):
+                # if we're totally deleting the line and it's the last
+                # line of a multi-line element, mark the preceding
+                # line as the new last line of the element.
+
+                if not ln.text and self.isLastLineOfElem(marked[0]):
+                    ls[marked[0] - 1].lb = LB_LAST
+
+        else:
+
+            # now find the line whose linebreak we need to adjust. if
+            # the starting line is not completely removed, it is that,
+            # otherwise it is the preceding line, unless we delete the
+            # first line of the element, in which case there's nothing
+            # to adjust.
+            if ls[marked[0]].text:
                 ln = ls[marked[0]]
-
-                # if it is a single-line element, we never need to modify
-                # its linebreak
-                if not self.isOnlyLineOfElem(marked[0]):
-                    # if we're totally deleting the line and it's the last
-                    # line of a multi-line element, mark the preceding
-                    # line as the new last line of the element.
-
-                    if not ln.text and self.isLastLineOfElem(marked[0]):
-                        ls[marked[0] - 1].lb = LB_LAST
-
             else:
-
-                # now find the line whose linebreak we need to adjust. if
-                # the starting line is not completely removed, it is that,
-                # otherwise it is the preceding line, unless we delete the
-                # first line of the element, in which case there's nothing
-                # to adjust.
-                if ls[marked[0]].text:
-                    ln = ls[marked[0]]
+                if not self.isFirstLineOfElem(marked[0]):
+                    ln = ls[marked[0] - 1]
                 else:
-                    if not self.isFirstLineOfElem(marked[0]):
-                        ln = ls[marked[0] - 1]
-                    else:
-                        ln = None
+                    ln = None
 
-                if ln:
-                    # if the selection ends by removing completely the
-                    # last line of an element, we need to mark the
-                    # element's new end, otherwise we must set it to
-                    # LB_NONE so that the new element is reformatted
-                    # properly.
-                    if self.isLastLineOfElem(marked[1]) and \
-                           not ls[marked[1]].text:
-                        ln.lb = LB_LAST
-                    else:
-                        ln.lb = LB_NONE
+            if ln:
+                # if the selection ends by removing completely the
+                # last line of an element, we need to mark the
+                # element's new end, otherwise we must set it to
+                # LB_NONE so that the new element is reformatted
+                # properly.
+                if self.isLastLineOfElem(marked[1]) and \
+                       not ls[marked[1]].text:
+                    ln.lb = LB_LAST
+                else:
+                    ln.lb = LB_NONE
 
-            # if we're joining two elements we have to change the line
-            # types for the latter element (starting from the last marked
-            # line, because everything before that will get deleted
-            # anyway) to that of the first element.
-            self.setLineTypes(marked[1], ls[marked[0]].lt)
+        # if we're joining two elements we have to change the line
+        # types for the latter element (starting from the last marked
+        # line, because everything before that will get deleted
+        # anyway) to that of the first element.
+        self.setLineTypes(marked[1], ls[marked[0]].lt)
 
-            del ls[del1:del2 + 1]
+        del ls[del1:del2 + 1]
 
-            self.clearMark()
+        self.clearMark()
 
-            if len(ls) == 0:
-                ls.append(Line(LB_LAST, SCENE))
+        if len(ls) == 0:
+            ls.append(Line(LB_LAST, SCENE))
 
-            self.line = min(marked[0], len(ls) - 1)
-            self.column = min(endCol, len(ls[self.line].text))
+        self.line = min(marked[0], len(ls) - 1)
+        self.column = min(endCol, len(ls[self.line].text))
 
-            self.rewrapElem()
-            self.markChanged()
+        self.rewrapElem()
+        self.markChanged()
+
+        u.setAfter(self)
+        self.addUndo(u)
 
         return cd
 
@@ -2139,6 +2206,8 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
     def paste(self, clines):
         if len(clines) == 0:
             return
+
+        u = undo.AnyDifference(self)
 
         inLines = []
         i = 0
@@ -2213,6 +2282,9 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         # bug...
 
         self.reformatRange(wrap1, self.getParaFirstIndexFromLine(self.line))
+
+        u.setAfter(self)
+        self.addUndo(u)
 
         self.clearMark()
         self.clearAutoComp()
@@ -2518,11 +2590,14 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         self.column = col
 
         if mark and not self.mark:
-            self.mark = Mark(line, col)
+            self.setMark(line, col)
 
-    # remove all lines whose element types are in tdict as keys
-    def removeElementTypes(self, tdict):
+    # remove all lines whose element types are in tdict as keys.
+    def removeElementTypes(self, tdict, saveUndo):
         self.clearAutoComp()
+
+        if saveUndo:
+            u = undo.FullCopy(self)
 
         lsNew = []
         lsOld = self.lines
@@ -2549,8 +2624,16 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         self.lines = lsNew
 
         self.validatePos()
-        self.mark = None
+        self.clearMark()
         self.markChanged()
+
+        if saveUndo:
+            u.setAfter(self)
+            self.addUndo(u)
+
+    # set mark at given position
+    def setMark(self, line, column):
+        self.mark = Mark(line, column)
 
     # clear mark
     def clearMark(self):
@@ -2559,7 +2642,7 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
     # if doIt is True and mark is not yet set, set it at current position.
     def maybeMark(self, doIt):
         if doIt and not self.mark:
-            self.mark = Mark(self.line, self.column)
+            self.setMark(self.line, self.column)
 
     # make sure current line and column are within the valid bounds.
     def validatePos(self):
@@ -2691,13 +2774,40 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         self.column = 0
 
     def deleteBackwardCmd(self, cs):
+        u = None
+        mergeUndo = False
+
+        # only merge with the previous item in undo history if:
+        #   -we are not in middle of undo/redo
+        #   -previous item is "delete backward"
+        #   -cursor is exactly where it was left off by the previous item
+        if (not self.currentUndo and self.lastUndo and
+            (self.lastUndo.getType() == undo.CMD_DEL_BACKWARD) and
+            (self.lastUndo.endPos == self.cursorAsMark())):
+            u = self.lastUndo
+            mergeUndo = True
+
         if self.column != 0:
+            if not mergeUndo:
+                u = undo.ManyElems(self, undo.CMD_DEL_BACKWARD, self.line, 1, 1)
+
             self.deleteChar(self.line, self.column - 1)
             self.markChanged()
             cs.doAutoComp = cs.AC_REDO
         else:
             if self.line != 0:
                 ln = self.lines[self.line - 1]
+
+                # delete at start of the line of the first line of the
+                # element means "join up with previous element", so is a
+                # 2->1 change. otherwise we just delete a character from
+                # current element so no element count change.
+                if ln.lb == LB_LAST:
+                    u = undo.ManyElems(self, undo.CMD_MISC, self.line - 1, 2, 1)
+                    mergeUndo = False
+                else:
+                    if not mergeUndo:
+                        u = undo.ManyElems(self, undo.CMD_DEL_BACKWARD, self.line, 1, 1)
 
                 if ln.lb == LB_NONE:
                     self.deleteChar(self.line - 1, len(ln.text) - 1,
@@ -2709,14 +2819,47 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
         self.rewrapElem()
 
+        if u:
+            u.setAfter(self)
+
+            if not mergeUndo:
+                self.addUndo(u)
+
     def deleteForwardCmd(self, cs):
+        u = None
+        mergeUndo = False
+
+        # only merge with the previous item in undo history if:
+        #   -we are not in middle of undo/redo
+        #   -previous item is "delete forward"
+        #   -cursor is exactly where it was left off by the previous item
+        if (not self.currentUndo and self.lastUndo and
+            (self.lastUndo.getType() == undo.CMD_DEL_FORWARD) and
+            (self.lastUndo.endPos == self.cursorAsMark())):
+            u = self.lastUndo
+            mergeUndo = True
+
         if self.column != len(self.lines[self.line].text):
+            if not mergeUndo:
+                u = undo.ManyElems(self, undo.CMD_DEL_FORWARD, self.line, 1, 1)
+
             self.deleteChar(self.line, self.column)
             self.markChanged()
             cs.doAutoComp = cs.AC_REDO
         else:
             if self.line != (len(self.lines) - 1):
                 ln = self.lines[self.line]
+
+                # delete at end of the line of the last line of the
+                # element means "join up with next element", so is a 2->1
+                # change. otherwise we just delete a character from
+                # current element so no element count change.
+                if ln.lb == LB_LAST:
+                    u = undo.ManyElems(self, undo.CMD_MISC, self.line, 2, 1)
+                    mergeUndo = False
+                else:
+                    if not mergeUndo:
+                        u = undo.ManyElems(self, undo.CMD_DEL_FORWARD, self.line, 1, 1)
 
                 if ln.lb == LB_NONE:
                     self.deleteChar(self.line + 1, 0, False)
@@ -2727,6 +2870,12 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
         self.rewrapElem()
 
+        if u:
+            u.setAfter(self)
+
+            if not mergeUndo:
+                self.addUndo(u)
+
     # aborts stuff, like selection, auto-completion, etc
     def abortCmd(self, cs):
         self.clearMark()
@@ -2735,7 +2884,7 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
     def selectSceneCmd(self, cs):
         l1, l2 = self.getSceneIndexes()
 
-        self.mark = Mark(l1, 0)
+        self.setMark(l1, 0)
 
         self.line = l2
         self.column = len(self.lines[l2].text)
@@ -2743,23 +2892,28 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
     # select all text of the screenplay. sets mark at beginning and moves
     # cursor to the end.
     def selectAllCmd(self, cs):
-        self.mark = Mark(0, 0)
+        self.setMark(0, 0)
 
         self.line = len(self.lines) - 1
         self.column = len(self.lines[self.line].text)
 
     def insertForcedLineBreakCmd(self, cs):
+        u = undo.ManyElems(self, undo.CMD_MISC, self.line, 1, 1)
+
         self.splitLine()
 
         self.rewrapPara()
         self.rewrapPrevPara()
+
+        u.setAfter(self)
+        self.addUndo(u)
 
     def splitElementCmd(self, cs):
         tcfg = self.cfgGl.getType(self.lines[self.line].lt)
         self.splitElement(tcfg.newTypeEnter)
 
     def setMarkCmd(self, cs):
-        self.mark = Mark(self.line, self.column)
+        self.setMark(self.line, self.column)
 
     # either creates a new element or converts the current one to
     # nextTypeTab, depending on circumstances.
@@ -2774,7 +2928,7 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
         if self.tabMakesNew():
             self.splitElement(tcfg.newTypeTab)
         else:
-            self.convertTypeTo(tcfg.nextTypeTab)
+            self.convertTypeTo(tcfg.nextTypeTab, True)
 
     # switch current element to prevTypeTab.
     def toPrevTypeTabCmd(self, cs):
@@ -2784,18 +2938,57 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
             return
 
         tcfg = self.cfgGl.getType(self.lines[self.line].lt)
-        self.convertTypeTo(tcfg.prevTypeTab)
+        self.convertTypeTo(tcfg.prevTypeTab, True)
 
     # add character cs.char if it's a valid one.
     def addCharCmd(self, cs):
-        if len(cs.char) != 1:
+        char = cs.char
+
+        if len(char) != 1:
             return
 
-        kc = ord(cs.char)
+        kc = ord(char)
+
         if not util.isValidInputChar(kc):
             return
 
-        char = cs.char
+        isSpace = char == " "
+
+        # only merge with the previous item in undo history if:
+        #   -we are not in middle of undo/redo
+        #   -previous item is "add character"
+        #   -cursor is exactly where it was left off by the previous item
+        #
+        # in addition, to get word-level undo, not element-level undo, we
+        # want to merge all spaces with the word preceding them, but stop
+        # merging when a new word begins. this is implemented by the
+        # following algorith:
+        #
+        # lastUndo    char       merge
+        # --------    -------    -----
+        # non-space   non-space  Y
+        # non-space   space      Y      <- change type of lastUndo to space
+        # space       space      Y
+        # space       non-space  N
+
+        if (not self.currentUndo and self.lastUndo and
+            (self.lastUndo.getType() in (undo.CMD_ADD_CHAR, undo.CMD_ADD_CHAR_SPACE)) and
+            (self.lastUndo.endPos == self.cursorAsMark()) and
+            not ((self.lastUndo.getType() == undo.CMD_ADD_CHAR_SPACE) and not isSpace)):
+
+            u = self.lastUndo
+            mergeUndo = True
+
+            if isSpace:
+                u.cmdType = undo.CMD_ADD_CHAR_SPACE
+        else:
+            mergeUndo = False
+
+            if isSpace:
+                u = undo.SinglePara(self, undo.CMD_ADD_CHAR_SPACE, self.line)
+            else:
+                u = undo.SinglePara(self, undo.CMD_ADD_CHAR, self.line)
+
         if self.capitalizeNeeded():
             char = util.upper(char)
 
@@ -2839,32 +3032,114 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
 
         cs.doAutoComp = cs.AC_REDO
 
+        u.setAfter(self)
+
+        if not mergeUndo:
+            self.addUndo(u)
+
     def toSceneCmd(self, cs):
-        self.convertTypeTo(SCENE)
+        self.convertTypeTo(SCENE, True)
 
     def toActionCmd(self, cs):
-        self.convertTypeTo(ACTION)
+        self.convertTypeTo(ACTION, True)
 
     def toCharacterCmd(self, cs):
-        self.convertTypeTo(CHARACTER)
+        self.convertTypeTo(CHARACTER, True)
 
     def toDialogueCmd(self, cs):
-        self.convertTypeTo(DIALOGUE)
+        self.convertTypeTo(DIALOGUE, True)
 
     def toParenCmd(self, cs):
-        self.convertTypeTo(PAREN)
+        self.convertTypeTo(PAREN, True)
 
     def toTransitionCmd(self, cs):
-        self.convertTypeTo(TRANSITION)
+        self.convertTypeTo(TRANSITION, True)
 
     def toShotCmd(self, cs):
-        self.convertTypeTo(SHOT)
+        self.convertTypeTo(SHOT, True)
 
     def toActBreakCmd(self, cs):
-        self.convertTypeTo(ACTBREAK)
+        self.convertTypeTo(ACTBREAK, True)
 
     def toNoteCmd(self, cs):
-        self.convertTypeTo(NOTE)
+        self.convertTypeTo(NOTE, True)
+
+    # return True if we can undo
+    def canUndo(self):
+        return bool(
+            # undo history exists
+            self.lastUndo
+
+            # and we either:
+            and (
+                # are not in the middle of undo/redo
+                not self.currentUndo or
+
+                # or are, but can still undo more
+                self.currentUndo.prev))
+
+    # return True if we can redo
+    def canRedo(self):
+        return bool(self.currentUndo)
+
+    def addUndo(self, u):
+        if self.currentUndo:
+            # new edit action while navigating undo history; throw away
+            # any undo history after current point
+
+            if self.currentUndo.prev:
+                # not at beginning of undo history; cut off the rest
+                self.currentUndo.prev.next = None
+                self.lastUndo = self.currentUndo.prev
+            else:
+                # beginning of undo history; throw everything away
+                self.firstUndo = None
+                self.lastUndo = None
+
+            self.currentUndo = None
+
+        if not self.lastUndo:
+            # no undo history at all yet
+            self.firstUndo = u
+            self.lastUndo = u
+        else:
+            self.lastUndo.next = u
+            u.prev = self.lastUndo
+            self.lastUndo = u
+
+        # FIXME: remove items beginning at self.firstUndo until undo history
+        # is small enough (whether in number of items, estimated memory
+        # consumption, or what, to be determined)
+
+        self.currentUndo = None
+
+    def undo(self):
+        if not self.canUndo():
+            return
+
+        # the action to undo
+        if self.currentUndo:
+            u = self.currentUndo.prev
+        else:
+            u = self.lastUndo
+
+        u.undo(self)
+        self.currentUndo = u
+
+        self.clearMark()
+        self.clearAutoComp()
+        self.markChanged()
+
+    def redo(self):
+        if not self.canRedo():
+            return
+
+        self.currentUndo.redo(self)
+        self.currentUndo = self.currentUndo.next
+
+        self.clearMark()
+        self.clearAutoComp()
+        self.markChanged()
 
     # check script for internal consistency. raises an AssertionError on
     # errors. ONLY MEANT TO BE USED IN TEST CODE.
@@ -2921,12 +3196,26 @@ class Line:
         return config.lb2char(self.lb) + config.lt2char(self.lt)\
                + self.text
 
+    def __ne__(self, other):
+        return ((self.lt != other.lt) or (self.lb != other.lb) or
+                (self.text != other.text))
+
+    # opposite of __str__. NOTE: only meant for storing data internally by
+    # the program! NOT USABLE WITH EXTERNAL INPUT DUE TO COMPLETE LACK OF
+    # ERROR CHECKING!
+    @staticmethod
+    def fromStr(s):
+        return Line(config.char2lb(s[0]), config.char2lt(s[1]), s[2:])
+
 # used to keep track of selected area. this marks one of the end-points,
 # while the other one is the current position.
 class Mark:
     def __init__(self, line, column):
         self.line = line
         self.column = column
+
+    def __eq__(self, other):
+        return (self.line == other.line) and (self.column == other.column)
 
 # data held in internal clipboard.
 class ClipData:

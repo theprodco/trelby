@@ -1,6 +1,7 @@
 import config
 import misc
 import spellcheck
+import undo
 import util
 
 import wx
@@ -17,9 +18,6 @@ class SpellCheckDlg(wx.Dialog):
 
         # user's global spell checker dictionary
         self.gScDict = gScDict
-
-        # have we replaced any text in the script
-        self.didReplaces = False
 
         # have we added any words to global dictionary
         self.changedGlobalDict = False
@@ -78,9 +76,7 @@ class SpellCheckDlg(wx.Dialog):
     def showWord(self):
         self.ctrl.sp.line = self.sc.line
         self.ctrl.sp.column = self.sc.col
-        self.ctrl.searchLine = self.sc.line
-        self.ctrl.searchColumn = self.sc.col
-        self.ctrl.searchWidth = len(self.sc.word)
+        self.ctrl.sp.setMark(self.sc.line, self.sc.col + len(self.sc.word) - 1)
 
         self.replaceEntry.SetValue(self.sc.word)
 
@@ -115,20 +111,31 @@ class SpellCheckDlg(wx.Dialog):
         if not self.sc.word:
             return
 
+        sp = self.ctrl.sp
+        u = undo.SinglePara(sp, undo.CMD_MISC, self.sc.line)
+
         word = util.toInputStr(misc.fromGUI(self.replaceEntry.GetValue()))
-        ls = self.ctrl.sp.lines
+        ls = sp.lines
+
+        sp.gotoPos(self.sc.line, self.sc.col)
 
         ls[self.sc.line].text = util.replace(
             ls[self.sc.line].text, word,
             self.sc.col, len(self.sc.word))
 
-        self.ctrl.searchLine = -1
+        sp.rewrapPara(sp.getParaFirstIndexFromLine(self.sc.line))
 
-        diff = len(word) - len(self.sc.word)
+        # rewrapping a paragraph can have moved the cursor, so get the new
+        # location of it, and then advance past the just-changed word
+        self.sc.line = sp.line
+        self.sc.col = sp.column + len(word)
 
-        self.sc.col += len(self.sc.word) + diff
-        self.didReplaces = True
-        self.ctrl.sp.markChanged()
+        sp.clearMark()
+        sp.markChanged()
+
+        u.setAfter(sp)
+        sp.addUndo(u)
+
         self.gotoNext(False)
 
     def OnSkip(self, event = None, autoFind = False):

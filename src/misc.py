@@ -1,3 +1,5 @@
+# -*- coding: iso-8859-1 -*-
+
 import gutil
 import opts
 import util
@@ -262,6 +264,7 @@ class MyTabCtrl(wx.Window):
 
         # initialized in OnPaint since we don't know our height yet
         self.font = None
+        self.boldFont = None
 
         self.SetMinSize(wx.Size(
                 self.paddingX * 2 + self.arrowWidth * 2 + self.arrowSpacing +\
@@ -461,12 +464,13 @@ class MyTabCtrl(wx.Window):
             textH = h - self.textY - 1
             self.font = util.createPixelFont(
                 textH, wx.FONTFAMILY_DEFAULT, wx.NORMAL, wx.NORMAL)
-
-        dc.SetFont(self.font)
+            self.boldFont = util.createPixelFont(
+                textH, wx.FONTFAMILY_DEFAULT, wx.NORMAL, wx.BOLD)
 
         maxTab = self.getLastVisibleTab()
 
         for i in range(self.firstTab, maxTab + 1):
+            dc.SetFont(self.font)
             p = self.pages[i]
 
             dc.DestroyClippingRegion()
@@ -491,7 +495,8 @@ class MyTabCtrl(wx.Window):
             dc.DrawText(p[1], xpos + self.paddingX, self.textY)
 
             dc.DestroyClippingRegion()
-            dc.DrawText("x", xpos + tabW - self.paddingX * 2, self.textY)
+            dc.SetFont(self.boldFont)
+            dc.DrawText("×", xpos + tabW - self.paddingX * 2, self.textY)
 
             xpos += tabW
 
