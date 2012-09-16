@@ -1063,7 +1063,7 @@ class MyCtrl(wx.Control):
         self.clearAutoComp()
         self.sp.clearMark()
         self.mouseSelectActive = False
-	self.updateScreen()
+        self.updateScreen()
 
         wasAtStart = self.sp.line == 0
 

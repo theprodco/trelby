@@ -1666,7 +1666,6 @@ Generated with <a href="http://www.trelby.org">Trelby</a>.</p>
                 self.lines[i].text = self.lines[i].text[:c1] + util.upper(self.lines[i].text[c1:c2+1]) + \
                 self.lines[i].text[c2+1:]
             self.clearMark()
-            self.reformatAll()
             self.markChanged()
             if saveUndo:
                 u.setAfter(self)
