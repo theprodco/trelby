@@ -980,6 +980,9 @@ class ConfigGlobal:
         # how many lines to scroll per mouse wheel event
         v.addInt("mouseWheelLines", 4, "MouseWheelLines", 1, 50)
 
+        # how many minutes between auto-saves
+        v.addInt("autoSaveMinutes", 0, "AutoSaveMinutes", 0, 60)
+
         # interval in seconds between automatic pagination (0 = disabled)
         v.addInt("paginateInterval", 1, "PaginateInterval", 0, 10)
 
