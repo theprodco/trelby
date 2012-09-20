@@ -1219,7 +1219,8 @@
 
 		<para>The default script directory setting allows you to specify
 		the default directory for File/Open dialog on program
-		startup.</para>
+		startup as well as the destination for automatically saved
+		untitled scripts.</para>
 
 		<para>You can specify what application you want to use as your PDF
 		viewer. On Windows, this is usually Adobe Acrobat, and the path is
@@ -1276,6 +1277,15 @@
 
 		<para>'Lines to scroll per mouse wheel event' needs no
 		explaining.</para>
+
+		<para>'Minutes between auto-saves' defines how often to automatically
+		save all open scripts.  Scripts that have been saved previously are
+		automatically saved using their previous file names and locations.
+		Any untitled scripts are saved to the default script directory,
+		provided the default script directory has appropriate write
+		permissions.  Untitled scripts are automatically given file names
+		incorporating the current date, time, and tab position.  Setting the
+		number of minutes to "0" disables auto-save entirely.</para>
 
 	  </sect2>
 
