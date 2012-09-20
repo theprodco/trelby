@@ -27,6 +27,7 @@ import spellcheck
 import spellcheckdlg
 import spellcheckcfgdlg
 import splash
+import threading
 import titlesdlg
 import util
 import viewmode
@@ -512,6 +513,9 @@ class MyCtrl(wx.Control):
         mainFrame.statusCtrl.Refresh(False)
         mainFrame.noFSBtn.Refresh(False)
         mainFrame.toolBar.SetBackgroundColour(cfgGui.tabBarBgColor)
+
+        # update the timer
+        mainFrame.resetTimer()
 
         if writeCfg:
             util.writeToFile(gd.confFilename, cfgGl.save(), mainFrame)
@@ -1092,6 +1096,24 @@ class MyCtrl(wx.Control):
             self.saveFile(self.fileName)
         else:
             self.OnSaveScriptAs()
+
+    def OnAutoSave(self, count = None):
+        if self.fileName:
+            self.saveFile(self.fileName)
+        else:
+            self.OnSaveUntitledScript(count)
+
+    def OnSaveUntitledScript(self, count):
+        # check if we can write this file to default script directory.
+        if os.access(misc.scriptDir, os.W_OK):
+            if misc.isWindows:
+                div = "\\"
+            else:
+                div = "/"
+        # don't use colons for filename below as this may cause issues with OS X.
+            self.saveFile(misc.scriptDir + div + "untitled-" +
+                time.strftime("%Y-%m-%d-%H.%M.%S") + "-tab-" +
+                str(count) + ".trelby")
 
     def OnSaveScriptAs(self):
         if self.fileName:
@@ -2172,6 +2194,39 @@ class MyFrame(wx.Frame):
                 for key in cmd.keys:
                     self.kbdCommands[key] = cmd
 
+    def resetTimer(self):
+        global t
+        if t.isAlive():
+            t.cancel()
+        t = threading.Timer(cfgGl.autoSaveMinutes*60, self.autosaveAllScripts)
+        if cfgGl.autoSaveMinutes > 0:
+            t.start()
+
+    def autosaveAllScripts(self):
+        if self.isModifications():
+            # try to save every open tab
+            count = 1  # track open tabs so we have no naming clashes
+            for c in self.getCtrls():
+                c.OnAutoSave(count)
+                count += 1
+
+        # NOTE:  We want to warn the user if the default script directory is unwritable,
+        #        but using wx.MessageBox w/code below occasionally crashes with:
+        #
+        #    python: Fatal IO error 11 (Resource temporarily unavailable) on X server :0.
+        #
+        #        This may be related to the use of the timer thread (?) and requires more
+        #        investigation.  For now, a bad default script directory will result in
+        #        silent failure as there seems to be no way to safely notify the user.
+        #
+        # if not os.access(misc.scriptDir, os.W_OK):
+        #     wx.MessageBox( "Warning:  No write permission for " + str(misc.scriptDir) +
+        #                    ", which is needed to autosave untitled scripts.  " +
+        #                    "Change the default script directory in the settings.",
+        #                    "Warning", wx.OK, None)
+
+        self.resetTimer()
+
     # open script, in the current tab if it's untouched, or in a new one
     # otherwise
     def openScript(self, filename):
@@ -2578,6 +2633,7 @@ class MyFrame(wx.Frame):
             util.writeToFile(gd.stateFilename, gd.save(), self)
             util.removeTempFiles(misc.tmpPrefix)
             self.Destroy()
+            t.cancel()
             myApp.ExitMainLoop()
         else:
             event.Veto()
@@ -2596,7 +2652,7 @@ class MyFrame(wx.Frame):
 class MyApp(wx.App):
 
     def OnInit(self):
-        global cfgGl, mainFrame, gd
+        global cfgGl, mainFrame, gd, t
 
         if (wx.MAJOR_VERSION != 2) or (wx.MINOR_VERSION != 8):
             wx.MessageBox("You seem to have an invalid version\n"
@@ -2683,6 +2739,9 @@ class MyApp(wx.App):
             win = splash.SplashWindow(mainFrame, cfgGl.splashTime * 1000)
             win.Show()
             win.Raise()
+
+        t = threading.Timer(0, mainFrame.resetTimer)
+        t.start()
 
         return True
 
