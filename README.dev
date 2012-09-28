@@ -62,6 +62,34 @@ Then, on Windows, to create the installer:
 Your freshly created Setup-Trelby-<version>.exe should be ready.
 
 
+2.7. Preparing for a Mac OS X build
+==================================
+
+Building Trelby.app for MacOS X requires the following:
+
+*  MacOS X -- Versions 10.6.x - 10.8.x have been tested and are known to work
+*  XCode --  Use the latest.  You can also install a non-Apple toolchain from
+   https://github.com/kennethreitz/osx-gcc-installer
+*  Python 2.7.x -- http://www.python.org/download/releases/2.7.3/ (or latest)
+*  A recent version of lxml - see http://lxml.de/  Best to build this from source
+   using "python setup.py build --static-deps".  See the site for more details.
+*  py2app -- http://packages.python.org/py2app/
+*  wxPython 2.9 -- http://wxpython.org/download.php#stable
+   Make sure you get the cocoa version, which requires Python 2.7 or higher
+*  To build the manual, you will need docbook-xsl and xsltproc, which you can install
+   using Mac Ports ( www.macports.org )
+
+Once you've installed the above, do this from the root source directory:
+
+make dist-osx
+
+The above command should cause Trelby.app to appear in a "dist" subdirectory.  Or do:
+
+make install-osx
+
+The results of the above command should install Trelby.app to the /Applications directory
+and create a folder on your Desktop with supporting documents as well as a symlink.
+
 3. Running Trelby in test mode
 ==============================
 

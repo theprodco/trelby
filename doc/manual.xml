@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
- "/usr/share/xml/docbook/schema/dtd/4.3/docbookx.dtd"
+ "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
 [
 <!ENTITY % vers   SYSTEM "version.xml">
 <!ENTITY trelby "<application>Trelby</application>">

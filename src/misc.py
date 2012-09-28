@@ -15,17 +15,21 @@ TAB_BAR_HEIGHT = 24
 version = "2.3-dev"
 
 def init(doWX = True):
-    global isWindows, isUnix, unicodeFS, wxIsUnicode, doDblBuf, \
-           progPath, confPath, tmpPrefix
+    global isWindows, isUnix, isMac, unicodeFS, wxIsUnicode, doDblBuf, \
+           progPath, confPath, scriptPath, tmpPrefix, version
 
     # prefix used for temp files
     tmpPrefix = "trelby-tmp-"
 
     isWindows = False
     isUnix = False
+    isMac = False
 
     if wx.Platform == "__WXMSW__":
         isWindows = True
+    elif wx.Platform == "__WXMAC__":
+        isMac=True
+        isUnix=True
     else:
         isUnix = True
 
@@ -46,12 +50,17 @@ def init(doWX = True):
         progPath = u"."
         confPath = u".trelby"
     else:
-        if isUnix:
+    # default scriptPath should be writeable in Unix and OS X
+        if isMac:
+            progPath = "/Applications/Trelby.app"
+            confPath = unicode(os.environ["HOME"], "UTF-8") + "/Library/Application Support/Trelby"
+            scriptPath = unicode(os.environ["HOME"], "UTF-8") + "/Desktop"
+        elif isUnix:
             progPath = unicode(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                 "UTF-8")
-
             confPath = unicode(os.environ["HOME"], "UTF-8") + u"/.trelby"
+            scriptPath = unicode(os.environ["HOME"], "UTF-8")
         else:
             progPath = getPathFromRegistry()
 
@@ -59,6 +68,7 @@ def init(doWX = True):
 
             if not os.path.exists(confPath):
                 os.makedirs(confPath)
+            scriptPath = progPath
 
 def getPathFromRegistry():
     registryPath = r"Software\Microsoft\Windows\CurrentVersion\App Paths\trelby.exe"

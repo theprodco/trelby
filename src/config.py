@@ -1027,7 +1027,10 @@ class ConfigGlobal:
 
         # PDF viewer program and args. defaults are empty since generating
         # them is a complex process handled by findPDFViewer.
-        v.addStrUnicode("pdfViewerPath", u"", "PDF/ViewerPath")
+        if not misc.isMac:
+            v.addStrUnicode("pdfViewerPath", u"", "PDF/ViewerPath")
+        else:
+            v.addStrUnicode("pdfViewerPath", "/Applications/Preview.app", "PDF/ViewerPath")
         v.addStrBinary("pdfViewerArgs", "", "PDF/ViewerArguments")
 
         # fonts. real defaults are set in setDefaultFonts.
@@ -1037,35 +1040,63 @@ class ConfigGlobal:
         v.addStrBinary("fontBoldItalic", "", "FontBoldItalic")
 
         # default script directory
-        v.addStrUnicode("scriptDir", misc.progPath, "DefaultScriptDirectory")
+        v.addStrUnicode("scriptDir", misc.scriptPath, "DefaultScriptDirectory")
 
         # colors
-        v.addColor("text", 0, 0, 0, "TextFG", "Text foreground")
-        v.addColor("textHdr", 128, 128, 128, "TextHeadersFG",
-                   "Text foreground (headers)")
-        v.addColor("textBg", 255, 255, 255, "TextBG", "Text background")
-        v.addColor("workspace", 237, 237, 237, "Workspace", "Workspace")
-        v.addColor("pageBorder", 202, 202, 202, "PageBorder", "Page border")
-        v.addColor("pageShadow", 153, 153, 153, "PageShadow", "Page shadow")
-        v.addColor("selected", 200, 200, 200, "Selected", "Selection")
-        v.addColor("cursor", 135, 135, 253, "Cursor", "Cursor")
-        v.addColor("autoCompFg", 0, 0, 0, "AutoCompletionFG",
-                   "Auto-completion foreground")
-        v.addColor("autoCompBg", 255, 240, 168, "AutoCompletionBG",
-                   "Auto-completion background")
-        v.addColor("note", 255, 237, 223, "ScriptNote", "Script note")
-        v.addColor("pagebreak", 221, 221, 221, "PageBreakLine",
-                   "Page-break line")
-        v.addColor("pagebreakNoAdjust", 221, 221, 221,
-                   "PageBreakNoAdjustLine",
-                   "Page-break (original, not adjusted) line")
+	if not misc.isMac:
+            v.addColor("text", 0, 0, 0, "TextFG", "Text foreground")
+            v.addColor("textHdr", 128, 128, 128, "TextHeadersFG",
+                       "Text foreground (headers)")
+            v.addColor("textBg", 255, 255, 255, "TextBG", "Text background")
+            v.addColor("workspace", 237, 237, 237, "Workspace", "Workspace")
+            v.addColor("pageBorder", 202, 202, 202, "PageBorder", "Page border")
+            v.addColor("pageShadow", 153, 153, 153, "PageShadow", "Page shadow")
+            v.addColor("selected", 200, 200, 200, "Selected", "Selection")
+            v.addColor("cursor", 135, 135, 253, "Cursor", "Cursor")
+            v.addColor("autoCompFg", 0, 0, 0, "AutoCompletionFG",
+                       "Auto-completion foreground")
+            v.addColor("autoCompBg", 255, 240, 168, "AutoCompletionBG",
+                       "Auto-completion background")
+            v.addColor("note", 255, 237, 223, "ScriptNote", "Script note")
+            v.addColor("pagebreak", 221, 221, 221, "PageBreakLine",
+                       "Page-break line")
+            v.addColor("pagebreakNoAdjust", 221, 221, 221,
+                       "PageBreakNoAdjustLine",
+                       "Page-break (original, not adjusted) line")
 
-        v.addColor("tabText", 50, 50, 50, "TabText", "Tab text")
-        v.addColor("tabBorder", 202, 202, 202, "TabBorder",
-                   "Tab border")
-        v.addColor("tabBarBg", 221, 217, 215, "TabBarBG",
-                   "Tab bar background")
-        v.addColor("tabNonActiveBg", 180, 180, 180, "TabNonActiveBg", "Tab, non-active")
+            v.addColor("tabText", 50, 50, 50, "TabText", "Tab text")
+            v.addColor("tabBorder", 202, 202, 202, "TabBorder",
+                       "Tab border")
+            v.addColor("tabBarBg", 221, 217, 215, "TabBarBG",
+                       "Tab bar background")
+            v.addColor("tabNonActiveBg", 180, 180, 180, "TabNonActiveBg", "Tab, non-active")
+	else:
+            v.addColor("text", 0, 0, 0, "TextFG", "Text foreground")
+            v.addColor("textHdr", 0, 0, 0, "TextHeadersFG",
+                       "Text foreground (headers)")
+            v.addColor("textBg", 254, 255, 254, "TextBG", "Text background")
+            v.addColor("workspace", 226, 226, 226, "Workspace", "Workspace")
+            v.addColor("pageBorder", 153, 153, 153, "PageBorder", "Page border")
+            v.addColor("pageShadow", 0, 0, 0, "PageShadow", "Page shadow")
+            v.addColor("selected", 172, 204, 252, "Selected", "Selection")
+            v.addColor("cursor", 172, 204, 252, "Cursor", "Cursor")
+            v.addColor("autoCompFg", 0, 0, 0, "AutoCompletionFG",
+                       "Auto-completion foreground")
+            v.addColor("autoCompBg", 172, 204, 252, "AutoCompletionBG",
+                       "Auto-completion background")
+            v.addColor("note", 202, 202, 202, "ScriptNote", "Script note")
+            v.addColor("pagebreak", 153, 153, 153, "PageBreakLine",
+                       "Page-break line")
+            v.addColor("pagebreakNoAdjust", 126, 126, 126,
+                       "PageBreakNoAdjustLine",
+                       "Page-break (original, not adjusted) line")
+
+            v.addColor("tabText", 0, 0, 0, "TabText", "Tab text")
+            v.addColor("tabBorder", 141, 141, 141, "TabBorder",
+                       "Tab border")
+            v.addColor("tabBarBg", 192, 192, 192, "TabBarBG",
+                       "Tab bar background")
+            v.addColor("tabNonActiveBg", 153, 153, 153, "TabNonActiveBg", "Tab, non-active")
 
         for t in getTIs():
             v.addColor("text%s" % t.name, 0, 0, 0, "Text%sFG" % t.name,
@@ -1365,7 +1396,7 @@ class ConfigGui:
             # config file, and some wxWidgets ports crash hard when trying
             # to create a font from an empty string, so we must guard
             # against that.
-            if s:
+            if s and not misc.isMac:
                 nfi = wx.NativeFontInfo()
                 nfi.FromString(s)
                 nfi.SetEncoding(wx.FONTENCODING_ISO8859_1)
