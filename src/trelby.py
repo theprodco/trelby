@@ -37,9 +37,14 @@ import datetime
 import os
 import os.path
 import signal
+import subprocess
 import sys
 import time
-import wx
+try:
+    import wx
+except ImportError:
+    raise "Warning:  wxpython is not installed."
+    # continue running to notify MacOS X users via applescript popup
 
 from functools import partial
 
@@ -1732,7 +1737,7 @@ class MyCtrl(wx.Control):
 class MyFrame(wx.Frame):
 
     def __init__(self, parent, id, title):
-        wx.Frame.__init__(self, parent, id, title, name = "Trelby")
+        wx.Frame.__init__(self, parent, id, title, name = "Trelby", style=wx.DEFAULT_FRAME_STYLE)
 
         if misc.isUnix:
             # automatically reaps zombies
@@ -1744,7 +1749,10 @@ class MyFrame(wx.Frame):
         self.SetSizeHints(gd.cvars.getMin("width"),
                           gd.cvars.getMin("height"))
 
-        self.MoveXY(gd.posX, gd.posY)
+        if misc.isMac:
+            self.MoveXY(50,50)
+        else:
+            self.MoveXY(gd.posX, gd.posY)
         self.SetSize(wx.Size(gd.width, gd.height))
 
         util.removeTempFiles(misc.tmpPrefix)
@@ -1780,8 +1788,9 @@ class MyFrame(wx.Frame):
 
         fileMenu.AppendSeparator()
         # "most recently used" list comes in here
-        fileMenu.AppendSeparator()
-        fileMenu.Append(ID_FILE_EXIT, "E&xit\tCTRL-Q")
+        if not misc.isMac:
+            fileMenu.AppendSeparator()
+            fileMenu.Append(ID_FILE_EXIT, "E&xit\tCTRL-Q")
 
         editMenu = wx.Menu()
         editMenu.Append(ID_EDIT_UNDO, "&Undo\tCTRL-Z")
@@ -2001,6 +2010,7 @@ class MyFrame(wx.Frame):
         wx.EVT_MENU(self, ID_SETTINGS_SAVE_AS, self.OnSaveSettingsAs)
         wx.EVT_MENU(self, ID_SETTINGS_SC_DICT, self.OnSpellCheckerDictionaryDlg)
         wx.EVT_MENU(self, ID_FILE_EXIT, self.OnExit)
+        wx.EVT_MENU(self, wx.ID_EXIT, self.OnExit) # OS X
         wx.EVT_MENU(self, ID_EDIT_UNDO, self.OnUndo)
         wx.EVT_MENU(self, ID_EDIT_REDO, self.OnRedo)
         wx.EVT_MENU(self, ID_EDIT_CUT, self.OnCut)
@@ -2048,6 +2058,7 @@ class MyFrame(wx.Frame):
         wx.EVT_MENU(self, ID_HELP_COMMANDS, self.OnHelpCommands)
         wx.EVT_MENU(self, ID_HELP_MANUAL, self.OnHelpManual)
         wx.EVT_MENU(self, ID_HELP_ABOUT, self.OnAbout)
+        wx.EVT_MENU(self, wx.ID_ABOUT, self.OnAbout) # OS X
 
         wx.EVT_MENU_RANGE(self, gd.mru.getIds()[0], gd.mru.getIds()[1],
                           self.OnMRUFile)
@@ -2079,7 +2090,8 @@ class MyFrame(wx.Frame):
         ib = wx.IconBundle()
 
         for sz in ("16", "32", "64", "128", "256"):
-            ib.AddIcon(wx.IconFromBitmap(misc.getBitmap("resources/icon%s.png" % sz)))
+            if not misc.isMac:
+                ib.AddIcon(wx.IconFromBitmap(misc.getBitmap("resources/icon%s.png" % sz)))
 
         self.SetIcons(ib)
 
@@ -2721,10 +2733,35 @@ class MyApp(wx.App):
     def OnInit(self):
         global cfgGl, mainFrame, gd, t
 
-        if (wx.MAJOR_VERSION != 2) or (wx.MINOR_VERSION != 8):
+        minor = 8
+        if wx.Platform == "__WXMAC__":  # misc hasn't been initialized yet.
+            minor = 9
+            message1 = "Trelby requires Python 2.7 (you have " + str(sys.version_info.major) \
+                + "." + str(sys.version_info.minor) + "). " \
+                "You can download a newer version of Python for MacOS X from:\n\n" \
+                "http://www.python.org/download/releases/\n\n"
+            message2 = "Trelby requires wxPython 2.9.  " \
+                "You may download wxPython for MacOS X from:\n\nhttp://wxpython.org\n\n" \
+                "Please install and try again."
+            if sys.version_info < (2, 7):
+                subprocess.call(['osascript', '-e tell app "Finder" to display dialog "' +
+                    message1 + '"'])
+                subprocess.call(['osascript', '-e tell app "Finder" to activate'])
+                sys.exit()
+            try:
+               if (wx.MAJOR_VERSION != 2) or (wx.MINOR_VERSION != minor):
+                  raise
+            except:
+               subprocess.call(['osascript', '-e tell app "Finder" to display dialog "' +
+                   message2 + '"'])
+               subprocess.call(['osascript', '-e tell app "Finder" to activate'])
+               sys.exit()
+
+        if (wx.MAJOR_VERSION != 2) or (wx.MINOR_VERSION != minor):
             wx.MessageBox("You seem to have an invalid version\n"
                           "(%s) of wxWidgets installed. This\n"
-                          "program needs version 2.8." %
+                          "program needs version 2." + minor + "." +
+                          addendum %
                           wx.VERSION_STRING, "Error", wx.OK)
             sys.exit()
 
@@ -2732,6 +2769,11 @@ class MyApp(wx.App):
         util.init()
 
         gd = GlobalData()
+
+        if misc.isMac and not str(os.getcwd()) == (misc.progPath + "/Contents/Resources"):
+            subprocess.call(['osascript', '-e tell app "Finder" to display dialog "' +
+            "Sorry, Trelby must be run from the /Applications folder." + '"'])
+            sys.exit()
 
         if misc.isWindows:
             major = sys.getwindowsversion()[0]

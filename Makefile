@@ -5,6 +5,12 @@ PREFIX = $(DESTDIR)/usr
 dist: names.txt.gz dict_en.dat.gz manual.html
 	python setup.py sdist
 
+dist-osx: names.txt.gz dict_en.dat.gz manual.html
+	python setup.py py2app
+	ln -s ./Contents/Resources/resources dist/Trelby.app/resources
+	ln -s ./lib/python2.7/src dist/Trelby.app/Contents/resources/src
+	ln -s ./Contents/Resources/manual.html dist/Trelby.app/manual.html
+
 deb: dist
 	debuild -us -uc -b
 
@@ -27,3 +33,9 @@ clean:
 
 install: dist
 	python setup.py install
+
+install-osx: dist-osx
+	cp -r dist/Trelby.app /Applications
+	mkdir -p ~/Desktop/Trelby
+	ln -sf /Applications/Trelby.app ~/Desktop/Trelby/Trelby.app
+	cp -f names.txt.gz dict_en.dat.gz manual.html LICENSE README fileformat.txt sample.trelby ~/Desktop/Trelby

@@ -1246,8 +1246,9 @@ class ElementsGlobalPanel(wx.Panel):
         self.OnElementCombo()
 
     def addTypeCombo(self, name, descr, parent, sizer):
-        sizer.Add(wx.StaticText(parent, -1, descr + ":"), 0,
-                  wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
+        if not misc.isMac:
+            sizer.Add(wx.StaticText(parent, -1, descr + ":"), 0,
+                wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 10)
 
         combo = wx.ComboBox(parent, -1, style = wx.CB_READONLY)
 

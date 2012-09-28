@@ -57,11 +57,29 @@ includes = [
     "lxml._elementpath"
 ]
 
+Plist = dict(CFBundleDocumentTypes=[dict(CFBundleTypeExtensions=["trelby"],
+                                         CFBundleTypeName="Trelby Document",
+                                         CFBundleTypeRole="Editor",
+                                         CFBundleTypeIconFile="icon256.icns",
+                                         CFBundleName="Trelby"),
+                                   ]
+            )
+
 options = {
     "py2exe": {
         "compressed": 1,
         "optimize": 2,
         "includes": includes,
+    },
+    "py2app": {
+         "compressed": 1,
+         "optimize": 2,
+         "includes": includes,
+         'argv_emulation': True,
+         'iconfile':'icon256.icns',
+         'plist': Plist,
+         'includes': includes,
+         'packages':['src'],
     }
 }
 
@@ -76,6 +94,17 @@ if sys.platform == "win32":
                 "icon_resources": [(1, "icon32.ico")],
            }]
         )
+elif sys.platform == "darwin":
+    import py2app
+    import shutil
+    # py2app requires that the runnable file end in .py
+    # It cannot be named trelby.py as that name is taken.
+    # This name is also used in native Hide and Quit menus.
+    shutil.copyfile("bin/trelby","bin/mactrelby.py")
+    platformOptions = dict(
+         setup_requires = ['py2app'],
+          app = ['bin/mactrelby.py'],
+    )
 else:
     platformOptions = {}
 
@@ -124,8 +153,8 @@ Features:
  * Free software: Licensed under the GPL, Trelby welcomes developers and
    screenwriters to contribute in making it more useful.
 """,
-      author = "Osku Salerma",
-      author_email = "osku.salerma@gmail.com",
+      maintainer = "Osku Salerma",
+      maintainer_email = "osku.salerma@gmail.com",
       url = "http://www.trelby.org/",
       license = "GPL",
       packages = ["src"],

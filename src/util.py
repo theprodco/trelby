@@ -8,6 +8,7 @@ import gzip
 import misc
 import os
 import re
+import subprocess
 import tempfile
 import time
 
@@ -813,7 +814,10 @@ class Key:
             s += "CTRL+"
 
         if self.alt:
-            s += "ALT+"
+            if not misc.isMac:
+                s += "ALT+"
+            else:
+                s += "CMD+"
 
         if self.shift:
             s += "SHIFT+"
@@ -1094,6 +1098,9 @@ def showPDF(filename, cfgGl, frame):
     # TODO: spawnv does not support Unicode paths as of this moment
     # (Python 2.4). for now, convert it to UTF-8 and hope for the best.
     try:
-        os.spawnv(os.P_NOWAIT, pdfProgram.encode("UTF-8"), args)
+        if not misc.isMac:
+            os.spawnv(os.P_NOWAIT, pdfProgram.encode("UTF-8"), args)
+        else:
+            subprocess.call(['open', pdfProgram.encode("UTF-8"), filename])
     except OSError:
         complain()
