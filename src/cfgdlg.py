@@ -1110,7 +1110,7 @@ class MiscPanel(wx.Panel):
                      self, vsizer, "mouseWheelLines")
 
         self.addSpin("autoSaveMinutes", "Minutes between auto-saves:\n"
-                     " (0 = disable):", self, vsizer, "autoSaveMinutes")
+                     " (0 = disable) * EXPERIMENTAL FEATURE *", self, vsizer, "autoSaveMinutes")
 
         self.cfg2gui()
 
