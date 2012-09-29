@@ -6,6 +6,7 @@ import misc
 import mypickle
 import pml
 import screenplay
+import time
 import util
 
 import copy
@@ -451,8 +452,20 @@ class Config:
         v.addFloat("marginTop", 12.7, "Margin/Top", 0.0, 900.0)
 
         # paper size
-        v.addFloat("paperHeight", 297.0, "Paper/Height", 100.0, 1000.0)
-        v.addFloat("paperWidth", 210.0, "Paper/Width", 50.0, 1000.0)
+        # default to "letter" if running in timezones UTC-3 to UTC-10
+        # as this size is common in Canada/US/Mexico and much (but not all) of
+        # Latin America.  In future, it may be best to check local timezone
+        # and default to the national standard.  Note that there are many ISO
+        # and ANSI standards, so this could quickly become complicated.  But
+        # the North American industry is huge, so support for the default size
+        # is a good start.
+        defaultHeight = 297.0
+        defaultWidth  = 210.0
+        if -10 < (-time.altzone/3600) < -3:
+            defaultHeight = 279.4
+            defaultWidth  = 215.9
+        v.addFloat("paperHeight", defaultHeight, "Paper/Height", 100.0, 1000.0)
+        v.addFloat("paperWidth", defaultWidth, "Paper/Width", 50.0, 1000.0)
 
         # leave at least this many action lines on the end of a page
         v.addInt("pbActionLines", 2, "PageBreakActionLines", 1, 30)
