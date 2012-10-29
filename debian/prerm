@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# prerm-trelby  
+#
+# prepm for installing trelby
+#
+# Author: The Production Company
+
+set -e
+
+clear_mime()
+{
+xdg-icon-resource uninstall --size 16  application-trelby
+xdg-icon-resource uninstall --size 32  application-trelby
+xdg-icon-resource uninstall --size 64  application-trelby
+xdg-icon-resource uninstall --size 128 application-trelby
+xdg-icon-resource uninstall --size 256 application-trelby
+xdg-mime uninstall /usr/share/trelby/trelby-trelby.xml
+}
+
+case "$1" in
+   remove|upgrade)
+   if dpkg-query -W xdg-utils; 
+       then clear_mime;
+   fi
+   ;;
+
+   *)
+
+   ;;
+esac
+
+exit 0
+

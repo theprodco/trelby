@@ -5,4 +5,5 @@ Exec=trelby
 Icon=/usr/share/trelby/resources/icon256.png
 Type=Application
 Categories=Utility;Publishing;
+MimeType=application/trelby
 
