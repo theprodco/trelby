@@ -1,0 +1,34 @@
+#!/bin/bash
+#
+# postinst-trelby
+#
+# postinst for installing trelby
+#
+# Author: The Production Company
+
+set -e
+
+set_mime()
+{
+   xdg-mime install /usr/share/trelby/trelby-trelby.xml
+   xdg-icon-resource install --context mimetypes --size 16 /usr/share/trelby/resources/icon16.png application-trelby
+   xdg-icon-resource install --context mimetypes --size 32 /usr/share/trelby/resources/icon32.png application-trelby
+   xdg-icon-resource install --context mimetypes --size 64 /usr/share/trelby/resources/icon64.png application-trelby
+   xdg-icon-resource install --context mimetypes --size 128 /usr/share/trelby/resources/icon128.png application-trelby
+   xdg-icon-resource install --context mimetypes --size 256 /usr/share/trelby/resources/icon256.png application-trelby
+   return 0
+}
+
+case "$1" in
+   configure)
+   if dpkg-query -W xdg-utils;
+       then set_mime;
+   fi
+   ;;
+
+   *)
+
+   ;;
+esac
+
+exit 0

@@ -128,6 +128,7 @@ else:
 
 dataFiles = [
     ("applications", ["trelby.desktop"]),
+    ("trelby",["trelby-trelby.xml"])
     ]
 
 setup(
